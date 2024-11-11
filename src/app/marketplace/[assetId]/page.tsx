@@ -18,6 +18,7 @@ import {
   getNFTList,
   listNFT,
   RemoveNFTList,
+  SolanaTokens,
 } from "@/utils/nftMarket";
 import {
   useAnchorWallet,
@@ -29,6 +30,13 @@ import {
   getAssociatedTokenAddress,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CaretDownIcon, CaretUpIcon } from "@radix-ui/react-icons";
 
 interface Product {
   name: string;
@@ -48,6 +56,9 @@ const ProductPage: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [price, setPrice] = useState<number>(0);
+  const [token, setToken] = useState("");
+  const [tokenDecimals, setTokenDecimals] = useState<number>(0);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (assetId) {
@@ -82,8 +93,16 @@ const ProductPage: React.FC = () => {
     }
   }, [assetId]);
 
+  useEffect(() => {
+    if (token) {
+      const { decimals } = SolanaTokens[token];
+
+      setTokenDecimals(decimals);
+    }
+  }, [token]);
+
   const onBuy = useCallback(
-    async (sellerkey: string, listingkey: string) => {
+    async (sellerkey: string, listingkey: string, token: string) => {
       if (!publicKey) {
         console.error("Connect the wallet");
         alert("Connect the Wallet!");
@@ -112,7 +131,8 @@ const ProductPage: React.FC = () => {
           publicKey,
           provider,
           sendTransaction,
-          connection
+          connection,
+          token
         );
       } catch (error) {
         console.log(error);
@@ -142,6 +162,12 @@ const ProductPage: React.FC = () => {
     },
     [publicKey, connection, sendTransaction, price]
   );
+
+  const setSelectedToken = (e: Event) => {
+    const target = e.target as HTMLDivElement;
+    setToken(target.textContent ?? "USDC");
+  };
+
   if (!product) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-black p-4">
@@ -190,8 +216,34 @@ const ProductPage: React.FC = () => {
               {product.groupAddress}
             </Link>
           </p>
+          <DropdownMenu onOpenChange={setIsDropdownOpen}>
+            <DropdownMenuTrigger className="mt-2 mb-2 p-1 w-auto flex justify-between items-center rounded-xl outline outline-gray-400 hover:outline-gray-950">
+              {token === "" ? "Select Token" : token}
+              {isDropdownOpen ? <CaretUpIcon /> : <CaretDownIcon />}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent color="gray">
+              {Object.keys(SolanaTokens).length
+                ? Object.keys(SolanaTokens).map((k) => {
+                    return (
+                      <DropdownMenuItem
+                        key={SolanaTokens[k].address}
+                        onSelect={setSelectedToken}
+                      >
+                        {k}
+                      </DropdownMenuItem>
+                    );
+                  })
+                : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="text-md text-gray-800 dark:text-gray-200">
-            <strong>Price:{product.price / 1000000}USDC</strong>
+            <strong>
+              {token && tokenDecimals > 0
+                ? `Price: ${
+                    product.price / Number("1" + "0".repeat(tokenDecimals))
+                  } ${token}`
+                : ""}
+            </strong>
           </div>
           {product.seller == publicKey?.toString() ? (
             <Button
@@ -203,7 +255,8 @@ const ProductPage: React.FC = () => {
           ) : (
             <Button
               className="w-full h-12 text-xl bg-blue-400 text-white hover:bg-blue-500 mt-6"
-              onClick={() => onBuy(product.seller, product.listing)}
+              onClick={() => onBuy(product.seller, product.listing, token)}
+              disabled={!token}
             >
               Buy
             </Button>
