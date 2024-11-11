@@ -407,6 +407,7 @@ export async function getNFTDetail(
     TOKEN_2022_PROGRAM_ID
   );
   let image_url = "";
+  let additionalData = {} as any;
   console.log(metadata);
   if (metadata?.uri.includes("jpeg" || "png" || "jpg"))
     image_url = metadata?.uri || "";
@@ -416,8 +417,14 @@ export async function getNFTDetail(
       const res_data = await response.json();
       image_url = res_data.image;
       console.log(res_data);
+      additionalData["collection"] = res_data.collection ?? "";
+      additionalData["description"] = res_data.description ?? "";
+      additionalData["designer"] = res_data.designer ?? "";
+      additionalData["website"] = res_data.website ?? "";
+      additionalData["year"] = res_data.year ?? "";
     }
   }
+
   const NFTItem: NFTDetail = {
     name: metadata?.name || "",
     symbol: metadata?.symbol || "",
@@ -427,6 +434,7 @@ export async function getNFTDetail(
     seller: seller,
     price: price,
     listing: listing,
+    ...additionalData,
   };
   return NFTItem;
 }

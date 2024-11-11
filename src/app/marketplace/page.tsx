@@ -21,6 +21,7 @@ import Skeleton from "@/components/Skeleton";
 import { getNFTDetail, getNFTList } from "@/utils/nftMarket";
 import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
+import { Input } from "@/components/ui/input";
 
 export interface NFTDetail {
   name: string;
@@ -31,17 +32,36 @@ export interface NFTDetail {
   seller: string;
   price: string;
   listing: string;
+  collection?: string;
+  description?: string;
+  designer?: string;
+  website?: string;
+  year?: string;
+
+  [key: string]: any;
+}
+
+export interface NFTFilterCriteria {
+  collection?: string;
+  description?: string;
+  designer?: string;
+  name?: string;
+  website?: string;
+  year?: string;
+
+  [key: string]: any;
 }
 
 const trimAddress = (address: string) =>
   `${address.slice(0, 4)}...${address.slice(-4)}`;
 
 const Closet: React.FC = () => {
-  const { publicKey } = useWallet();
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [assets, setAssets] = useState<NFTDetail[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterCriteria, setFilterCriteria] = useState<NFTFilterCriteria>({});
+  const [isFilterDirty, setIsFilterDirty] = useState<boolean>(false);
   const wallet = useAnchorWallet();
   const { connection } = useConnection();
 
@@ -58,10 +78,6 @@ const Closet: React.FC = () => {
     }
     fetchNFTs();
   }, []);
-
-  // useEffect(() => {
-  //   fetchAssets();
-  // }, [publicKey]);
 
   useEffect(() => {
     fetchNFTs();
@@ -81,9 +97,6 @@ const Closet: React.FC = () => {
 
     try {
       const listings = await getNFTList(provider, connection);
-      // const mint = new PublicKey(listings[0].mint);
-      // const detail = await getNFTDetail(mint, connection);
-      console.log(listings);
       const promises = listings
         .filter((list) => list.isActive)
         .map((list) => {
@@ -98,7 +111,6 @@ const Closet: React.FC = () => {
         });
       const detailedListings = await Promise.all(promises);
       console.log(detailedListings);
-      //return detailedListings;
 
       setAssets(detailedListings);
     } catch (errr) {
@@ -108,6 +120,36 @@ const Closet: React.FC = () => {
     }
   };
 
+  const changeFilterCriteria = (key: string, value: string) => {
+    setFilterCriteria((prev) => {
+      return { ...prev, [key]: value } as NFTFilterCriteria;
+    });
+
+    if (!isFilterDirty) {
+      setIsFilterDirty(true);
+    }
+  };
+
+  const onFilterAssets = () => {
+    const filtersArr = Object.keys(filterCriteria) as string[];
+
+    const filteredAssets = assets.filter((asset) =>
+      filtersArr.every((key) => {
+        const assetKey: string = asset[key] ?? "";
+        const filterKey: string = filterCriteria[key] ?? "";
+        return assetKey.toLowerCase().includes(filterKey.toLowerCase());
+      })
+    );
+
+    setAssets(filteredAssets);
+  };
+
+  const onClearFilters = () => {
+    setFilterCriteria({});
+    setIsFilterDirty(false);
+    fetchNFTs();
+  };
+
   return (
     <div className="p-4 pt-20 bg-white dark:bg-black min-h-screen">
       <h1 className="text-3xl font-bold mb-4 text-center text-black dark:text-white">
@@ -115,6 +157,99 @@ const Closet: React.FC = () => {
       </h1>
 
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
+
+      <div className="flex items-start justify-evenly">
+        <div>
+          <label
+            htmlFor="collection"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Collection
+          </label>
+          <Input
+            id="collection"
+            value={filterCriteria.collection ?? ""}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Input collection..."
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="description"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Description
+          </label>
+          <Input
+            id="description"
+            value={filterCriteria.description ?? ""}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Input description..."
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="Designer"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Designer
+          </label>
+          <Input
+            id="designer"
+            value={filterCriteria.designer ?? ""}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Input designer..."
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 mb-4 flex items-start justify-evenly">
+        <div>
+          <label
+            htmlFor="website"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Website
+          </label>
+          <Input
+            id="website"
+            value={filterCriteria.website ?? ""}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Input website..."
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="year"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Year
+          </label>
+          <Input
+            id="year"
+            value={filterCriteria.year ?? ""}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Year"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 mb-4 flex-row items-center text-end">
+        {isFilterDirty ? (
+          <button
+            className="bg-red-900 text-white hover:bg-red-800 rounded-xl p-2 mr-2"
+            onClick={() => onClearFilters()}
+          >
+            Clear Filters
+          </button>
+        ) : null}
+        <button
+          className="bg-blue-600 text-white hover:bg-blue-700 rounded-xl p-2"
+          onClick={() => onFilterAssets()}
+        >
+          Apply Filters
+        </button>
+      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -149,7 +284,20 @@ const Closet: React.FC = () => {
                 </div>
               </Link>
               <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-opacity flex flex-col justify-end items-center opacity-0 group-hover:opacity-100 text-white text-xs p-2">
-                <p className="font-semibold">{asset.name || "Unknown"}</p>
+                <p className="font-semibold">Name: {asset.name ?? "Unknown"}</p>
+                {asset.collection ? (
+                  <p className="font-semibold">
+                    Collection: {asset.collection}
+                  </p>
+                ) : null}
+                {asset.designer ? (
+                  <p className="font-semibold">Designer: {asset.designer}</p>
+                ) : null}
+                {asset.year ? (
+                  <p className="font-semibold">
+                    Year: {asset.year ?? "Unknown"}
+                  </p>
+                ) : null}
                 <Link
                   href={`https://solana.fm/address/${asset.mint}`}
                   target="_blank"
