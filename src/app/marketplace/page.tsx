@@ -3,24 +3,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import {
-  getAssetsByOwner,
-  fetchNFTDetails,
-  extractGroupAddress,
-} from "@/utils/getAssets";
 import Image from "next/image";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import {
-  useAnchorWallet,
-  useConnection,
-  useWallet,
-} from "@solana/wallet-adapter-react";
+import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import Card from "@/components/Card";
 import Skeleton from "@/components/Skeleton";
 import { getNFTDetail, getNFTList } from "@/utils/nftMarket";
 import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Input } from "@/components/ui/input";
 
 export interface NFTDetail {
@@ -48,6 +39,8 @@ export interface NFTFilterCriteria {
   name?: string;
   website?: string;
   year?: string;
+  minPrice?: number;
+  maxPrice?: number;
 
   [key: string]: any;
 }
@@ -121,6 +114,12 @@ const Closet: React.FC = () => {
   };
 
   const changeFilterCriteria = (key: string, value: string) => {
+    if (key == "minPrice" && Number(value) > (filterCriteria.maxPrice ?? 0))
+      return;
+
+    if (key == "maxPrice" && Number(value) < (filterCriteria.minPrice ?? 0))
+      return;
+
     setFilterCriteria((prev) => {
       return { ...prev, [key]: value } as NFTFilterCriteria;
     });
@@ -133,11 +132,20 @@ const Closet: React.FC = () => {
   const onFilterAssets = () => {
     const filtersArr = Object.keys(filterCriteria) as string[];
 
+    console.log(filterCriteria);
+
     const filteredAssets = assets.filter((asset) =>
       filtersArr.every((key) => {
         const assetKey: string = asset[key] ?? "";
         const filterKey: string = filterCriteria[key] ?? "";
-        return assetKey.toLowerCase().includes(filterKey.toLowerCase());
+
+        return key !== "minPrice" && key !== "maxPrice"
+          ? assetKey.toLowerCase().includes(filterKey.toLowerCase())
+          : key == "minPrice"
+          ? Number(asset.price) >= Number(filterKey) * LAMPORTS_PER_SOL
+          : key == "maxPrice"
+          ? Number(asset.price) <= Number(filterKey) * LAMPORTS_PER_SOL
+          : false;
       })
     );
 
@@ -229,7 +237,40 @@ const Closet: React.FC = () => {
             id="year"
             value={filterCriteria.year ?? ""}
             onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
-            placeholder="Year"
+            placeholder="Input year..."
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="year"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Min. Price
+          </label>
+          <Input
+            id="minPrice"
+            value={filterCriteria.minPrice ?? ""}
+            type="number"
+            min={0}
+            max={filterCriteria.maxPrice}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Input min. price..."
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="minPrice"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Max. Price
+          </label>
+          <Input
+            id="maxPrice"
+            value={filterCriteria.maxPrice ?? ""}
+            type="number"
+            min={filterCriteria.minPrice ?? 0}
+            onChange={(e) => changeFilterCriteria(e.target.id, e.target.value)}
+            placeholder="Input max. price..."
           />
         </div>
       </div>
@@ -284,7 +325,9 @@ const Closet: React.FC = () => {
                 </div>
               </Link>
               <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-opacity flex flex-col justify-end items-center opacity-0 group-hover:opacity-100 text-white text-xs p-2">
-                <p className="font-semibold">Name: {asset.name ?? "Unknown"}</p>
+                {asset.name ? (
+                  <p className="font-semibold">Name: {asset.name}</p>
+                ) : null}
                 {asset.collection ? (
                   <p className="font-semibold">
                     Collection: {asset.collection}
@@ -294,9 +337,7 @@ const Closet: React.FC = () => {
                   <p className="font-semibold">Designer: {asset.designer}</p>
                 ) : null}
                 {asset.year ? (
-                  <p className="font-semibold">
-                    Year: {asset.year ?? "Unknown"}
-                  </p>
+                  <p className="font-semibold">Year: {asset.year}</p>
                 ) : null}
                 <Link
                   href={`https://solana.fm/address/${asset.mint}`}
@@ -316,6 +357,11 @@ const Closet: React.FC = () => {
                     <FaExternalLinkAlt className="ml-1" />
                   </Link>
                 )}
+                {asset.price ? (
+                  <p className="font-semibold">
+                    Price: {asset.price / LAMPORTS_PER_SOL} SOL
+                  </p>
+                ) : null}
               </div>
             </div>
           ))}
