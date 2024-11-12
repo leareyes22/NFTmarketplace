@@ -465,3 +465,19 @@ async function createAssociatedAccount(
     "confirmed"
   );
 }
+
+export async function fetchSolUsdPrice() {
+  try {
+    const URL =
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd";
+
+    const response = await fetch(URL);
+
+    const jsonResponse = await response.json();
+
+    return Number(jsonResponse.solana.usd ?? 0);
+  } catch (error) {
+    console.error(error);
+    return 0;
+  }
+}

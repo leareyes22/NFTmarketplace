@@ -4,19 +4,17 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getAsset } from "@/utils/getToken";
 import Card from "@/components/Card";
 import Skeleton from "@/components/Skeleton";
 import Image from "next/image";
 import Link from "next/link";
 import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   buyNFT,
+  fetchSolUsdPrice,
   getNFTDetail,
   getNFTList,
-  listNFT,
   RemoveNFTList,
   SolanaTokens,
 } from "@/utils/nftMarket";
@@ -25,7 +23,7 @@ import {
   useConnection,
   useWallet,
 } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   getAssociatedTokenAddress,
   TOKEN_2022_PROGRAM_ID,
@@ -56,9 +54,18 @@ const ProductPage: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [price, setPrice] = useState<number>(0);
-  const [token, setToken] = useState("");
-  const [tokenDecimals, setTokenDecimals] = useState<number>(0);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [token, setToken] = useState<string>("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const [solPrice, setSolPrice] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchSolPrice = async () => {
+      const solUsdPrice = await fetchSolUsdPrice();
+      setSolPrice(solUsdPrice);
+    };
+
+    fetchSolPrice();
+  }, []);
 
   useEffect(() => {
     if (assetId) {
@@ -95,9 +102,14 @@ const ProductPage: React.FC = () => {
 
   useEffect(() => {
     if (token) {
-      const { decimals } = SolanaTokens[token];
+      const priceInSol = Number(product?.price) / LAMPORTS_PER_SOL;
 
-      setTokenDecimals(decimals);
+      if (token.includes("USD")) {
+        setPrice(priceInSol * solPrice);
+        return;
+      }
+
+      setPrice(priceInSol);
     }
   }, [token]);
 
@@ -237,13 +249,7 @@ const ProductPage: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="text-md text-gray-800 dark:text-gray-200">
-            <strong>
-              {token && tokenDecimals > 0
-                ? `Price: ${
-                    product.price / Number("1" + "0".repeat(tokenDecimals))
-                  } ${token}`
-                : ""}
-            </strong>
+            <strong>{price ? `Price: ${price} ${token}` : ""}</strong>
           </div>
           {product.seller == publicKey?.toString() ? (
             <Button
