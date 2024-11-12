@@ -4,10 +4,10 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "../context/ThemeContext";
 import axios from "axios";
-import Image from "next/image";
 import { Sun, Moon } from "lucide-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import dynamic from "next/dynamic";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { Connection, PublicKey } from "@solana/web3.js";
 
 // Dynamically load WalletMultiButton to ensure it is only rendered on the client side
 const DynamicWalletMultiButton = dynamic(
@@ -20,7 +20,9 @@ const DynamicWalletMultiButton = dynamic(
 
 const NavBar = () => {
   const { theme, toggleTheme } = useTheme();
+  const { publicKey, connected } = useWallet();
   const [username, setUsername] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number>(0);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -39,6 +41,26 @@ const NavBar = () => {
         });
     }
   }, []);
+
+  useEffect(() => {
+    if (publicKey) {
+      const walletAddress = publicKey.toBase58();
+      sessionStorage.setItem("walletAddress", walletAddress);
+
+      const fetchBalance = async () => {
+        if (publicKey) {
+          const connection = new Connection(
+            "https://api.devnet.solana.com",
+            "confirmed"
+          );
+          const balance = await connection.getBalance(new PublicKey(publicKey));
+          setBalance(balance / 1e9); // Convert lamports to SOL
+        }
+      };
+
+      fetchBalance();
+    }
+  }, [publicKey]);
 
   const handleToggleTheme = () => {
     toggleTheme(theme === "light" ? "dark" : "light");
@@ -83,6 +105,15 @@ const NavBar = () => {
               <Sun className="w-5 h-5 text-white" />
             )}
           </button>
+          {connected ? (
+            <span className={balance > 0 ? "text-white" : "text-red-500"}>
+              Wallet Balance:{" "}
+              {balance.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 6,
+              })}
+            </span>
+          ) : null}
           <DynamicWalletMultiButton />
         </div>
       </div>
